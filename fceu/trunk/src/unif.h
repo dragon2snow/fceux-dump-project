@@ -141,6 +141,7 @@ void UNLT230_Init(CartInfo *info);
 void UNLTF1201_Init(CartInfo *info);
 void UNLVRC7_Init(CartInfo *info);
 void UNLYOKO_Init(CartInfo *info);
+void UNL82112C_Init(CartInfo *info);
 void UNROM_Init(CartInfo *info);
 void UNROM512_Init(CartInfo *info);
 

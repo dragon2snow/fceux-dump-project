@@ -20,6 +20,7 @@
  * YOKO mapper, almost the same as 83, TODO: figure out difference
  * Mapper 83 - 30-in-1 mapper, two modes for single game carts, one mode for
  * multigame Dragon Ball Z Party
+ * UNL-82112C mapper,is YOKO mapper china pirate version,for Master Fighter VI' (Unl,EJ-4003)
  *
  * Mortal Kombat 2 YOKO
  * N-CXX(M), XX -  PRG+CHR, 12 - 128+256, 22 - 256+256, 14 - 128+512
@@ -115,6 +116,27 @@ static DECLFW(UNLYOKOWrite) {
 	}
 }
 
+static DECLFW(UNL82112CWrite) {
+	switch (A) {
+	case 0x9001: bank = V; UNLYOKOSync(); break;
+	case 0x9000: mode = V; UNLYOKOSync(); break;
+	case 0xC000: IRQCount &= 0xFF00; IRQCount |= V; X6502_IRQEnd(FCEU_IQEXT); break;
+	case 0xC001: IRQa = mode & 0x80; IRQCount &= 0xFF; IRQCount |= V << 8; break;
+	case 0x8000: 
+	case 0x8c00: reg[0] = V; UNLYOKOSync(); break;
+	case 0x8c01: reg[1] = V; UNLYOKOSync(); break;
+	case 0x8c02: reg[2] = V; UNLYOKOSync(); break;
+	case 0xC002:
+	case 0xA000: reg[3] = V; UNLYOKOSync(); break;
+	case 0xA001: reg[4] = V; UNLYOKOSync(); break;
+	case 0xB002: reg[5] = V; UNLYOKOSync(); break;
+	case 0xB003: reg[6] = V; UNLYOKOSync(); break;
+	default:
+		FCEU_printf("bs %04x %02x\n", A, V);
+		break;
+	}
+}
+
 static DECLFW(M83Write) {
 	switch (A) {
 	case 0x8000: is2kbank = 1;
@@ -159,6 +181,17 @@ static void UNLYOKOPower(void) {
 	SetWriteHandler(0x5400, 0x5FFF, UNLYOKOWriteLow);
 	SetReadHandler(0x8000, 0xFFFF, CartBR);
 	SetWriteHandler(0x8000, 0xFFFF, UNLYOKOWrite);
+}
+
+static void UNL82112CPower(void) {
+	mode = bank = 0;
+	dip = 3;
+	UNLYOKOSync();
+	SetReadHandler(0x5000, 0x53FF, UNLYOKOReadDip);
+	SetReadHandler(0x5400, 0x5FFF, UNLYOKOReadLow);
+	SetWriteHandler(0x5400, 0x5FFF, UNLYOKOWriteLow);
+	SetReadHandler(0x8000, 0xFFFF, CartBR);
+	SetWriteHandler(0x8000, 0xFFFF, UNL82112CWrite);
 }
 
 static void M83Power(void) {
@@ -215,6 +248,14 @@ static void M83StateRestore(int version) {
 
 void UNLYOKO_Init(CartInfo *info) {
 	info->Power = UNLYOKOPower;
+	info->Reset = UNLYOKOReset;
+	MapIRQHook = UNLYOKOIRQHook;
+	GameStateRestore = UNLYOKOStateRestore;
+	AddExState(&StateRegs, ~0, 0, 0);
+}
+
+void UNL82112C_Init(CartInfo *info) {
+	info->Power = UNL82112CPower;
 	info->Reset = UNLYOKOReset;
 	MapIRQHook = UNLYOKOIRQHook;
 	GameStateRestore = UNLYOKOStateRestore;
