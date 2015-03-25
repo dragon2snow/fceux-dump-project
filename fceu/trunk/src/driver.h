@@ -25,9 +25,6 @@ void FCEU_printf(char *format, ...);
 #define FCEUI_printf FCEU_printf
 
 //Video interface
-// FIXME: these functions are declared in windows video driver header, but not in linux video driver header;
-// eventually both platform video drivers should be brought to same set of functions and single shared header,
-// which then can be included where access to video driver functions is needed instead of driver.h
 void FCEUD_SetPalette(uint8 index, uint8 r, uint8 g, uint8 b);
 void FCEUD_GetPalette(uint8 i,uint8 *r, uint8 *g, uint8 *b);
 
@@ -82,7 +79,6 @@ void FCEUI_SetInputFourscore(bool attachFourscore);
 bool FCEUI_GetInputFourscore();
 //tells whether the microphone is used
 bool FCEUI_GetInputMicrophone();
-void FCEUI_SetInputMicrophone(bool set);
 
 void FCEUI_UseInputPreset(int preset);
 
@@ -263,9 +259,6 @@ void FCEUI_SetEmulationPaused(int val);
 void FCEUI_ToggleEmulationPause();
 
 //indicates whether input aids should be drawn (such as crosshairs, etc; usually in fullscreen mode)
-// FIXME: this function is already declared in both platform video driver headers;
-// eventually both platform video drivers should be brought to same set of functions and single shared header,
-// which then can be included where access to video driver functions is needed instead of driver.h
 bool FCEUD_ShouldDrawInputAids();
 
 ///called when the emulator closes a game
@@ -287,6 +280,11 @@ void FCEUI_SetAviDisableMovieMessages(bool disable);
 
 void FCEUD_AviRecordTo(void);
 void FCEUD_AviStop(void);
+
+///A callback that the emu core uses to poll the state of a given emulator command key
+typedef int TestCommandState(int cmd);
+///Signals the emu core to poll for emulator commands and take actions
+void FCEUI_HandleEmuCommands(TestCommandState* testfn);
 
 
 //Emulation speed

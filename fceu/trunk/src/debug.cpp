@@ -271,7 +271,7 @@ uint8 GetMem(uint16 A) {
 			case 3: return PPU[3];
 			case 4: return SPRAM[PPU[3]];
 			case 5: return XOffset;
-			case 6: return RefreshAddr&0xFF;
+			case 6: return FCEUPPU_PeekAddress() & 0xFF;
 			case 7: return VRAMBuffer;
 		}
 	// feos: added more registers
@@ -296,7 +296,7 @@ uint8 GetMem(uint16 A) {
 }
 
 uint8 GetPPUMem(uint8 A) {
-	uint16 tmp=RefreshAddr&0x3FFF;
+	uint16 tmp = FCEUPPU_PeekAddress() & 0x3FFF;
 
 	if (tmp<0x2000) return VPage[tmp>>10][tmp];
 	if (tmp>=0x3F00) return PALRAM[tmp&0x1F];
@@ -624,13 +624,14 @@ static void breakpoint(uint8 *opcode, uint16 A, int size) {
 				// PPU Mem breaks
 				if ((watchpoint[i].flags & brk_type) && ((A >= 0x2000) && (A < 0x4000)) && ((A&7) == 7))
 				{
+					const uint32 PPUAddr = FCEUPPU_PeekAddress();
 					if (watchpoint[i].endaddress)
 					{
-						if ((watchpoint[i].address <= RefreshAddr) && (watchpoint[i].endaddress >= RefreshAddr))
+						if ((watchpoint[i].address <= PPUAddr) && (watchpoint[i].endaddress >= PPUAddr))
 							BreakHit(i);
 					} else
 					{
-						if (watchpoint[i].address == RefreshAddr)
+						if (watchpoint[i].address == PPUAddr)
 							BreakHit(i);
 					}
 				}
@@ -754,7 +755,7 @@ static void breakpoint(uint8 *opcode, uint16 A, int size) {
 void DebugCycle()
 {
 	uint8 opcode[3] = {0};
-	uint16 A = 0;
+	uint16 A = 0, tmp;
 	int size;
 
 	if (scanline == 240)
@@ -789,12 +790,14 @@ void DebugCycle()
 	{
 		case 0: break;
 		case 1:
-			A = (opcode[1] + _X) & 0xFF;
-			A = GetMem(A) | (GetMem(A + 1) << 8);
+			tmp = (opcode[1] + _X) & 0xFF;
+			A = GetMem(tmp);
+			tmp = (opcode[1] + _X + 1) & 0xFF;
+			A |= (GetMem(tmp) << 8);
 			break;
 		case 2: A = opcode[1]; break;
 		case 3: A = opcode[1] | (opcode[2] << 8); break;
-		case 4: A = (GetMem(opcode[1]) | (GetMem(opcode[1]+1) << 8)) + _Y; break;
+		case 4: A = (GetMem(opcode[1]) | (GetMem((opcode[1] + 1) & 0xFF) << 8)) + _Y; break;
 		case 5: A = opcode[1] + _X; break;
 		case 6: A = (opcode[1] | (opcode[2] << 8)) + _Y; break;
 		case 7: A = (opcode[1] | (opcode[2] << 8)) + _X; break;

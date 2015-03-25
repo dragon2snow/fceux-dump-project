@@ -83,6 +83,8 @@ extern PLAYBACK playback;
 #include "Win32InputBox.h"
 extern int32 fps_scale_unpaused;
 
+//extern void ToggleFullscreen();
+
 using namespace std;
 
 //----Context Menu - Some dynamically added menu items
@@ -993,7 +995,7 @@ void HideFWindow(int h)
 //Toggles the display status of the main menu.
 void ToggleHideMenu(void)
 { 
-	if(!GetIsFullscreen() && !nofocus && (GameInfo || tog))
+	if(!fullscreen && !nofocus && (GameInfo || tog))
 	{
 		tog ^= 1;
 		HideMenu(tog);
@@ -1032,7 +1034,7 @@ bool ALoad(const char *nameo, char* innerFilename, bool silent)
 
 		UpdateCheckedMenuItems();
 
-		FCEUD_VideoChanged();
+		PushCurrentVideoSettings();
 
 		std::string recentFileName = nameo;
 		if(GameInfo->archiveFilename && GameInfo->archiveCount>1)
@@ -1051,10 +1053,7 @@ bool ALoad(const char *nameo, char* innerFilename, bool silent)
 
 		if(eoptions & EO_FSAFTERLOAD)
 		{
-			changerecursive=1;
-			SetIsFullscreen(true);
-			FCEUD_VideoChanged();
-			changerecursive=0;
+			SetFSVideoMode();
 		}
 		
 		
@@ -1075,7 +1074,7 @@ bool ALoad(const char *nameo, char* innerFilename, bool silent)
 	}
 	
 	SetMainWindowText();
-	FCEUD_SetInput(GameInfo->input[0], GameInfo->input[1], GameInfo->inputfc);
+	ParseGIInput(GameInfo);
 
 	updateGameDependentMenus(GameInfo != 0);
 	updateGameDependentMenusDebugger(GameInfo != 0);
@@ -1120,7 +1119,7 @@ void LoadNewGamey(HWND hParent, const char *initialdir)
 
 void GetMouseData(uint32 (&md)[3])
 {
-	RECT bestfitRect = GetActiveRect();
+	extern RECT bestfitRect;
 
 	double screen_width = VNSWID;
 	double screen_height = FSettings.TotalScanlines();
@@ -1272,10 +1271,8 @@ LRESULT FAR PASCAL AppWndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	{
 		if (fullscreenByDoubleclick)
 		{
-			changerecursive=1;
-			SetIsFullscreen(!GetIsFullscreen());
-			FCEUD_VideoChanged();
-			changerecursive=0;
+			extern void ToggleFullscreen();
+			ToggleFullscreen();
 			return 0;
 		} else
 		{
@@ -1382,7 +1379,7 @@ LRESULT FAR PASCAL AppWndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		goto proco;
 
 	case WM_SIZE:
-		if (!GetIsFullscreen() && !changerecursive && !windowedfailed)
+		if (!fullscreen && !changerecursive && !windowedfailed)
 		{
 			switch(wParam)
 			{
@@ -1442,7 +1439,7 @@ LRESULT FAR PASCAL AppWndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		//break;
 		goto proco;
 	case WM_DISPLAYCHANGE:
-		if(!GetIsFullscreen() && !changerecursive)
+		if(!fullscreen && !changerecursive)
 			vchanged=1;
 		goto proco;
 	case WM_DROPFILES:
@@ -1874,22 +1871,16 @@ LRESULT FAR PASCAL AppWndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				if((eoptions & EO_BGRUN) == 0)
 				{
 					EnableBackgroundInput = 0;
-					driver::input::keyboard::ClearBackgroundAccessBit(driver::input::keyboard::BKGINPUT_GENERAL);
-					driver::input::joystick::ClearBackgroundAccessBit(driver::input::joystick::BKGINPUT_GENERAL);
+					KeyboardSetBackgroundAccess(EnableBackgroundInput!=0);
+					JoystickSetBackgroundAccess(EnableBackgroundInput!=0);
 				}
 				UpdateCheckedMenuItems();
 				break;
 			case MENU_BACKGROUND_INPUT:
 				EnableBackgroundInput ^= 1;
 				eoptions |= EO_BGRUN * EnableBackgroundInput;
-				if(EnableBackgroundInput != 0) {
-					driver::input::keyboard::SetBackgroundAccessBit(driver::input::keyboard::BKGINPUT_GENERAL);
-					driver::input::joystick::SetBackgroundAccessBit(driver::input::joystick::BKGINPUT_GENERAL);
-				}
-				else {
-					driver::input::keyboard::ClearBackgroundAccessBit(driver::input::keyboard::BKGINPUT_GENERAL);
-					driver::input::joystick::ClearBackgroundAccessBit(driver::input::joystick::BKGINPUT_GENERAL);
-				}
+				KeyboardSetBackgroundAccess(EnableBackgroundInput!=0);
+				JoystickSetBackgroundAccess(EnableBackgroundInput!=0);
 				UpdateCheckedMenuItems();
 				break;
 			case MENU_ENABLE_AUTOSAVE:
@@ -1979,7 +1970,7 @@ LRESULT FAR PASCAL AppWndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				FCEUI_SetVidSystem(pal_emulation);
 				RefreshThrottleFPS();
 				UpdateCheckedMenuItems();
-				FCEUD_VideoChanged();
+				PushCurrentVideoSettings();
 				break;
 			case MENU_DIRECTORIES:
 				ConfigDirectories();
@@ -1988,7 +1979,7 @@ LRESULT FAR PASCAL AppWndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				ConfigGUI();
 				break;
 			case MENU_INPUT:
-				ConfigInput();
+				ConfigInput(hWnd);
 				break;
 			case MENU_NETWORK:
 				ShowNetplayConsole();
@@ -2003,7 +1994,7 @@ LRESULT FAR PASCAL AppWndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				ConfigTiming();
 				break;
 			case MENU_VIDEO:
-				ShowConfigVideoDialog();
+				ConfigVideo();
 				break;
 			case MENU_HOTKEYS:
 				MapInput();
@@ -2147,7 +2138,7 @@ LRESULT FAR PASCAL AppWndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				UpdateCheckedMenuItems();
 				break;
 			case MENU_ALTERNATE_AB:
-				SetAutoFireDesynch(!GetAutoFireDesynch());
+				SetAutoFireDesynch(GetAutoFireDesynch()^1);
 				UpdateCheckedMenuItems();
 				break;
 			case ID_TOOLS_TEXTHOOKER:
@@ -2299,28 +2290,16 @@ LRESULT FAR PASCAL AppWndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 
 		if(wParam==SC_KEYMENU)
 		{
-			if(GameInfo &&
-				(GetPluggedInEx() == SIFC_FKB ||
-				GetPluggedInEx() == SIFC_SUBORKB ||
-				GetPluggedInEx() == SIFC_PEC586KB) &&
-				GetInputKeyboard())
-			{
+			if(GameInfo && ((InputType[2]==SIFC_FKB) || (InputType[2]==SIFC_SUBORKB) || (InputType[2]==SIFC_PEC586KB)) && cidisabled)
 				break;
-			}
-			if(lParam == VK_RETURN || GetIsFullscreen() || tog) break;
+			if(lParam == VK_RETURN || fullscreen || tog) break;
 		}
 		goto proco;
 	case WM_SYSKEYDOWN:
-		if(GameInfo &&
-			(GetPluggedInEx() == SIFC_FKB ||
-			GetPluggedInEx() == SIFC_SUBORKB ||
-			GetPluggedInEx() == SIFC_PEC586KB) &&
-			GetInputKeyboard())
-		{
+		if(GameInfo && ((InputType[2]==SIFC_FKB) || (InputType[2]==SIFC_SUBORKB) || (InputType[2]==SIFC_PEC586KB)) && cidisabled)
 			break; // Hopefully this won't break DInput...
-		}
 
-		if(GetIsFullscreen() || tog)
+		if(fullscreen || tog)
 		{
 			if(wParam==VK_MENU)
 				break;
@@ -2349,16 +2328,14 @@ adelikat: Outsourced this to a remappable hotkey
 		if(GameInfo)
 		{
 			//Only disable command keys if a game is loaded(and the other conditions are right, of course).
-			if(GetPluggedInEx() == SIFC_FKB ||
-				GetPluggedInEx() == SIFC_SUBORKB ||
-				GetPluggedInEx() == SIFC_PEC586KB)
+			if((InputType[2]==SIFC_FKB) || (InputType[2]==SIFC_SUBORKB) || (InputType[2]==SIFC_PEC586KB))
 			{
 				if(wParam==VK_SCROLL)
 				{
-					SetInputKeyboard(!GetInputKeyboard());
-					FCEUI_DispMessage("%s %s.",0, ESIFC_Name(GetPluggedInEx()), GetInputKeyboard()? "enabled":"disabled");
+					cidisabled^=1;
+					FCEUI_DispMessage("%s Keyboard %sabled.",0,InputType[2]==SIFC_FKB?"Family":(InputType[2]==SIFC_SUBORKB?"Subor":"PEC586"),cidisabled?"en":"dis");
 				}
-				if(GetInputKeyboard())
+				if(cidisabled)
 					break; // Hopefully this won't break DInput...
 			}
 		}
@@ -2485,10 +2462,9 @@ void FixWXY(int pref, bool shift_held)
 
 void UpdateFCEUWindow(void)
 {
-	if(vchanged && !GetIsFullscreen() && !changerecursive && !nofocus)
+	if(vchanged && !fullscreen && !changerecursive && !nofocus)
 	{
-		SetIsFullscreen(false);
-		FCEUD_VideoChanged();
+		SetVideoMode(0);
 		vchanged = 0;
 	}
 
@@ -2629,13 +2605,11 @@ void SetMainWindowStuff()
 		ShowWindow(hAppWnd, SW_SHOWNORMAL);
 	}
 
-	// removed check for EO_BESTFIT flag
-	// OnWindowSizeChange() now is a general purpose window resize handler on video driver side
-	if (!windowedfailed)
+	if (eoptions & EO_BESTFIT && !windowedfailed)
 	{
 		RECT client_recr;
 		GetClientRect(hAppWnd, &client_recr);
-		OnWindowSizeChange(client_recr.right - client_recr.left, client_recr.bottom - client_recr.top);
+		recalculateBestFitRect(client_recr.right - client_recr.left, client_recr.bottom - client_recr.top);
 	}
 }
 
@@ -2759,252 +2733,248 @@ void UpdateMenuHotkeys()
 
 	//-------------------------------FILE---------------------------------------
 	//Open ROM
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_OPENROM));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_OPENROM]);
 	combined = "&Open ROM...\t" + combo;
 	ChangeMenuItemText(MENU_OPEN_FILE, combined);
 
 	//Close ROM
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_CLOSEROM));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_CLOSEROM]);
 	combined = "&Close\t" + combo;
 	ChangeMenuItemText(MENU_CLOSE_FILE, combined);
 
 	//Load State
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_LOAD_STATE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_LOAD_STATE]);
 	combined = "&Load State\t" + combo;
 	ChangeMenuItemText(MENU_LOADSTATE, combined);
 
 	//Save State
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SAVE_STATE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SAVE_STATE]);
 	combined = "&Save State\t" + combo;
 	ChangeMenuItemText(MENU_SAVESTATE, combined);
 
 	//Loadstate from
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_LOAD_STATE_FROM));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_LOAD_STATE_FROM]);
 	combined = "Load State &From...\t" + combo;
 	ChangeMenuItemText(MENU_LOAD_STATE, combined);
 
 	//Savestate as
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SAVE_STATE_AS));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SAVE_STATE_AS]);
 	combined = "Save State &As...\t" + combo;
 	ChangeMenuItemText(MENU_SAVE_STATE, combined);
 
 	//Next Save Slot
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SAVE_SLOT_NEXT));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SAVE_SLOT_NEXT]);
 	combined = "&Next save slot\t" + combo;
 	ChangeMenuItemText(MENU_NEXTSAVESTATE, combined);
 
 	//Previous Save Slot
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SAVE_SLOT_PREV));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SAVE_SLOT_PREV]);
 	combined = "&Previous save slot\t" + combo;
 	ChangeMenuItemText(MENU_PREVIOUSSAVESTATE, combined);
 
 	//View Save Slots
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MISC_SHOWSTATES));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MISC_SHOWSTATES]);
 	combined = "&View save slots\t" + combo;
 	ChangeMenuItemText(MENU_VIEWSAVESLOTS, combined);
 
 	//Record Movie
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MOVIE_RECORD_TO));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MOVIE_RECORD_TO]);
 	combined = "&Record Movie...\t" + combo;
 	ChangeMenuItemText(MENU_RECORD_MOVIE, combined);
 
 	//Play movie
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MOVIE_REPLAY_FROM));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MOVIE_REPLAY_FROM]);
 	combined = "&Play Movie...\t" + combo;
 	ChangeMenuItemText(MENU_REPLAY_MOVIE, combined); 
 
 	//Stop movie
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MOVIE_STOP));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MOVIE_STOP]);
 	combined = "&Stop Movie\t" + combo;
 	ChangeMenuItemText(MENU_STOP_MOVIE, combined); 
 
 	//Play Movie from Beginning
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MOVIE_PLAY_FROM_BEGINNING));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MOVIE_PLAY_FROM_BEGINNING]);
 	combined = "Play from &Beginning\t" + combo;
 	ChangeMenuItemText(ID_FILE_PLAYMOVIEFROMBEGINNING, combined); 
 
 	//Read only
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MOVIE_READONLY_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MOVIE_READONLY_TOGGLE]);
 	combined = "&Read only\t" + combo;
 	ChangeMenuItemText(ID_FILE_MOVIE_TOGGLEREAD, combined); 
 
 	//Screenshot
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SCREENSHOT));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SCREENSHOT]);
 	combined = "&Screenshot\t" + combo;
 	ChangeMenuItemText(ID_FILE_SCREENSHOT, combined); 
 
 	//Record AVI
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_AVI_RECORD_AS));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_AVI_RECORD_AS]);
 	combined = "&Record AVI...\t" + combo;
 	ChangeMenuItemText(MENU_RECORD_AVI, combined); 
 
 	//Stop AVI
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_AVI_STOP));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_AVI_STOP]);
 	combined = "&Stop AVI\t" + combo;
 	ChangeMenuItemText(MENU_STOP_AVI, combined); 
 	
 	//-------------------------------NES----------------------------------------
 	//Reset
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_RESET));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_RESET]);
 	combined = "&Reset\t" + combo;
 	ChangeMenuItemText(MENU_RESET, combined); 
 
 	//Power
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_POWER));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_POWER]);
 	combined = "&Power\t" + combo;
 	ChangeMenuItemText(MENU_POWER, combined);
 
 	//Eject/Insert Disk
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_FDS_EJECT_INSERT));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_FDS_EJECT_INSERT]);
 	combined = "&Eject/Insert Disk\t" + combo;
 	ChangeMenuItemText(MENU_EJECT_DISK, combined);
 
 	//Switch Disk Side
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_FDS_SIDE_SELECT));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_FDS_SIDE_SELECT]);
 	combined = "&Switch Disk Side\t" + combo;
 	ChangeMenuItemText(MENU_SWITCH_DISK, combined);
 	
 	//Insert Coin
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_VSUNI_COIN));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_VSUNI_COIN]);
 	combined = "&Insert Coin\t" + combo;
 	ChangeMenuItemText(MENU_INSERT_COIN, combined);
 		
 	//Speed Up
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SPEED_FASTER));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SPEED_FASTER]);
 	combined = "Speed &Up\t" + combo;
 	ChangeMenuItemText(ID_NES_SPEEDUP, combined);
 
 	//Slow Down
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SPEED_SLOWER));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SPEED_SLOWER]);
 	combined = "Slow &Down\t" + combo;
 	ChangeMenuItemText(ID_NES_SLOWDOWN, combined);
 
 	//Pause
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_PAUSE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_PAUSE]);
 	combined = "&Pause\t" + combo;
 	ChangeMenuItemText(ID_NES_PAUSE, combined);
 	
 	//Slowest Speed
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SPEED_SLOWEST));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SPEED_SLOWEST]);
 	combined = "&Slowest Speed\t" + combo;
 	ChangeMenuItemText(ID_NES_SLOWESTSPEED, combined);
 
 	//Normal Speed
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SPEED_NORMAL));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SPEED_NORMAL]);
 	combined = "&Normal Speed\t" + combo;
 	ChangeMenuItemText(ID_NES_NORMALSPEED, combined);
 
 	//Turbo
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_SPEED_TURBO_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_SPEED_TURBO_TOGGLE]);
 	combined = "&Turbo\t" + combo;
 	ChangeMenuItemText(ID_NES_TURBO, combined);
 
 	//-------------------------------Config-------------------------------------
 	//Hide Menu
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_HIDE_MENU_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_HIDE_MENU_TOGGLE]);
 	combined = "&Hide Menu\t" + combo;
 	ChangeMenuItemText(MENU_HIDE_MENU, combined);
 
 	//Frame Adv. skip lag
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_FRAMEADV_SKIPLAG));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_FRAMEADV_SKIPLAG]);
 	combined = "&Frame Adv. - Skip Lag\t" + combo;
 	ChangeMenuItemText(MENU_DISPLAY_FA_LAGSKIP, combined);
 
 	//Lag Counter
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MISC_DISPLAY_LAGCOUNTER_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MISC_DISPLAY_LAGCOUNTER_TOGGLE]);
 	combined = "&Lag Counter\t" + combo;
 	ChangeMenuItemText(MENU_DISPLAY_LAGCOUNTER, combined);
 
 	//Frame Counter
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MOVIE_FRAME_DISPLAY_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MOVIE_FRAME_DISPLAY_TOGGLE]);
 	combined = "&Frame Counter\t" + combo;
 	ChangeMenuItemText(ID_DISPLAY_FRAMECOUNTER, combined);
 
 	//Rerecord Counter
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_RERECORD_DISPLAY_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_RERECORD_DISPLAY_TOGGLE]);
 	combined = "&Rerecord Counter\t" + combo;
 	ChangeMenuItemText(ID_DISPLAY_RERECORDCOUNTER, combined);
 
 	//Movie status icon
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MOVIE_ICON_DISPLAY_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MOVIE_ICON_DISPLAY_TOGGLE]);
 	combined = "&Movie status icon\t" + combo;
 	ChangeMenuItemText(ID_DISPLAY_MOVIESTATUSICON, combined);
 
 	//FPS counter
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_FPS_DISPLAY_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_FPS_DISPLAY_TOGGLE]);
 	combined = "FPS\t" + combo;
 	ChangeMenuItemText(ID_DISPLAY_FPS, combined);
 
 	//Graphics: BG
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MISC_DISPLAY_BG_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MISC_DISPLAY_BG_TOGGLE]);
 	combined = "Graphics: &BG\t" + combo;
 	ChangeMenuItemText(MENU_DISPLAY_BG, combined);
 
 	//Graphics: OBJ
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MISC_DISPLAY_OBJ_TOGGLE));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MISC_DISPLAY_OBJ_TOGGLE]);
 	combined = "Graphics: &OBJ\t" + combo;
 	ChangeMenuItemText(MENU_DISPLAY_OBJ, combined);
 
 	//-------------------------------Tools--------------------------------------
 	//Open Cheats
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENCHEATS));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENCHEATS]);
 	combined = "&Cheats...\t" + combo;
 	ChangeMenuItemText(MENU_CHEATS, combined);
 
 	//Open RAM Search
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENRAMSEARCH));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENRAMSEARCH]);
 	combined = "&RAM Search...\t" + combo;
 	ChangeMenuItemText(ID_RAM_SEARCH, combined);
 
 	//Open RAM Watch
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENRAMWATCH));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENRAMWATCH]);
 	combined = "&RAM Watch...\t" + combo;
 	ChangeMenuItemText(ID_RAM_WATCH, combined);
 
 	//Open Memory Watch
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENMEMORYWATCH));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENMEMORYWATCH]);
 	combined = "&Memory Watch...\t" + combo;
 	ChangeMenuItemText(MENU_MEMORY_WATCH, combined);
 
 	//Open TAS Editor
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_MISC_OPENTASEDITOR));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_MISC_OPENTASEDITOR]);
 	combined = "&TAS Editor...\t" + combo;
 	ChangeMenuItemText(MENU_TASEDITOR, combined);
 
 	//-------------------------------Debug--------------------------------------
 	//Open Debugger
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENDEBUGGER));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENDEBUGGER]);
 	combined = "&Debugger...\t" + combo;
 	ChangeMenuItemText(MENU_DEBUGGER, combined);
 
 	//Open PPU Viewer
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENPPU));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENPPU]);
 	combined = "&PPU Viewer...\t" + combo;
 	ChangeMenuItemText(MENU_PPUVIEWER, combined);
 
 	//Open Nametable Viewer 
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENNTVIEW));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENNTVIEW]);
 	combined = "&Name table Viewer...\t" + combo;
 	ChangeMenuItemText(MENU_NAMETABLEVIEWER, combined);
 
 	//Open Hex editor
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENHEX));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENHEX]);
 	combined = "&Hex Editor...\t" + combo;
 	ChangeMenuItemText(MENU_HEXEDITOR, combined);
 
 	//Open Trace Logger
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENTRACELOGGER));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENTRACELOGGER]);
 	combined = "&Trace Logger...\t" + combo;
 	ChangeMenuItemText(MENU_TRACELOGGER, combined);
 	
 	//Open Code/Data Logger
-	combo = GetKeyComboName(GetCommandKeyCombo(EMUCMD_TOOL_OPENCDLOGGER));
+	combo = GetKeyComboName(FCEUD_CommandMapping[EMUCMD_TOOL_OPENCDLOGGER]);
 	combined = "&Code/Data Logger...\t" + combo;
 	ChangeMenuItemText(MENU_CDLOGGER, combined);
-}
-
-bool GetIsFullscreenOnDoubleclick() {
-	return fullscreenByDoubleclick;
 }
 
 //This function is for the context menu item Save Movie As...

@@ -22,7 +22,6 @@ Main - Main gate between emulator and Taseditor
 #include "main.h"			// for GetRomName
 #include "taseditor.h"
 #include "window.h"
-#include "video.h"
 #include "../../input.h"
 #include "../keyboard.h"
 #include "../joystick.h"
@@ -57,6 +56,7 @@ extern int joysticksPerFrame[INPUT_TYPES_TOTAL];
 extern bool turbo;
 extern int pal_emulation;
 extern int newppu;
+extern void PushCurrentVideoSettings();
 extern void RefreshThrottleFPS();
 extern bool LoadFM2(MovieData& movieData, EMUFILE* fp, int size, bool stopAfterHeader);
 // temporarily saved FCEUX config
@@ -883,6 +883,7 @@ void applyMovieInputConfig()
 	pal_emulation = currMovieData.palFlag;
 	FCEUI_SetVidSystem(pal_emulation);
 	RefreshThrottleFPS();
+	PushCurrentVideoSettings();
 	// update PPU type
 	newppu = currMovieData.PPUflag;
 	SetMainWindowText();
@@ -1002,13 +1003,13 @@ void enableGeneralKeyboardInput()
 {
 	taseditorEnableAcceleratorKeys = true;
 	// set "Background TAS Editor input"
-	driver::input::keyboard::SetBackgroundAccessBit(driver::input::keyboard::BKGINPUT_TASEDITOR);
-	driver::input::joystick::SetBackgroundAccessBit(driver::input::joystick::BKGINPUT_TASEDITOR);
+	KeyboardSetBackgroundAccessBit(KEYBACKACCESS_TASEDITOR);
+	JoystickSetBackgroundAccessBit(JOYBACKACCESS_TASEDITOR);
 }
 void disableGeneralKeyboardInput()
 {
 	taseditorEnableAcceleratorKeys = false;
 	// clear "Background TAS Editor input"
-	driver::input::keyboard::ClearBackgroundAccessBit(driver::input::keyboard::BKGINPUT_TASEDITOR);
-	driver::input::joystick::ClearBackgroundAccessBit(driver::input::joystick::BKGINPUT_TASEDITOR);
+	KeyboardClearBackgroundAccessBit(KEYBACKACCESS_TASEDITOR);
+	JoystickClearBackgroundAccessBit(JOYBACKACCESS_TASEDITOR);
 }

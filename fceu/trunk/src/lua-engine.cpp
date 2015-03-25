@@ -27,7 +27,6 @@
 
 #ifdef WIN32
 #include "drivers/win/common.h"
-#include "drivers/win/input.h"
 #include "drivers/win/taseditor/selection.h"
 #include "drivers/win/taseditor/laglog.h"
 #include "drivers/win/taseditor/markers.h"
@@ -275,9 +274,14 @@ static void FCEU_LuaOnStop()
 	gui_used = GUI_CLEAR;
 	//if (wasPaused && !FCEUI_EmulationPaused())
 	//	FCEUI_ToggleEmulationPause();
+
+	//zero 21-nov-2014 - this variable doesnt exist outside windows so it cant have this feature
+	#ifdef _MSC_VER
 	if (fps_scale != 256)							//thanks, we already know it's on normal speed
 		FCEUD_SetEmulationSpeed(EMUSPEED_NORMAL);	//TODO: Ideally lua returns the speed to the speed the user set before running the script
 													//rather than returning it to normal, and turbo off.  Perhaps some flags and a FCEUD_GetEmulationSpeed function
+	#endif
+
 	turbo = false;
 	//FCEUD_TurboOff();
 #ifdef WIN32
@@ -2397,7 +2401,8 @@ static int joypad_getimmediate(lua_State *L)
 	}
 	// Currently only supports Windows, sorry...
 #ifdef WIN32
-	uint8 buttons = GetGamepadPressedPhysical() >> ((which - 1) * 8);
+	extern uint32 GetGamepadPressedImmediate();
+	uint8 buttons = GetGamepadPressedImmediate() >> ((which - 1) * 8);
 
 	lua_newtable(L);
 	for (int i = 0; i < 8; ++i)

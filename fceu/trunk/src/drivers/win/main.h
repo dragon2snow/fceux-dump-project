@@ -34,6 +34,7 @@ extern int maxconbskip;
 extern int ffbskip;
 extern void LoadNewGamey(HWND hParent, const char *initialdir);
 extern void CloseGame();
+extern int fullscreen;	//Windows files only, keeps track of fullscreen status
 
 // Flag that indicates whether Game Genie is enabled or not.
 extern int genie;
@@ -45,6 +46,7 @@ extern int status_icon;
 extern int frame_display;
 extern int rerecord_display;
 extern int input_display;
+extern int allowUDLR;
 extern int pauseAfterPlayback;
 extern int closeFinishedMovie;
 extern int suggestReadOnlyReplay;
@@ -52,6 +54,8 @@ extern int EnableBackgroundInput;
 extern int AFon;
 extern int AFoff;
 extern int AutoFireOffset;
+
+extern int vmod;
 
 extern char* directory_names[14];
 
@@ -110,22 +114,22 @@ extern bool force_grayscale;
 //mbg merge 7/17/06 did these have to be unsigned?
 //static int srendline, erendline;
 
-extern int changerecursive;
+static int changerecursive=0;
 
 /// Contains the base directory of FCE
 extern std::string BaseDirectory;
 
-extern int isSoundEnabled;
+extern int soundo;
 extern int eoptions;
 extern int soundoptions;
 extern uint8 *xbsave;
+extern HRESULT ddrval;
 extern int windowedfailed;
 extern uint32 goptions;
 
 void DoFCEUExit();
 void ShowAboutBox();
 int BlockingCheck();
-void UpdateRendBounds(void);
 void DoPriority();
 void RemoveDirs();
 void CreateDirs();

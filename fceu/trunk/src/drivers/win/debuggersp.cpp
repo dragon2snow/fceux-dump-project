@@ -31,7 +31,6 @@
 #include <assert.h>
 
 int GetNesFileAddress(int A);
-int RegNameCount;
 
 inline int RomPageIndexForAddress(int addr) { return (addr-0x8000)>>(debuggerPageSize); }
 
@@ -47,7 +46,10 @@ Name* pageNames[32] = {0}; //the maximum number of pages we could have is 32, ba
 //int loadedBank = -1;
 
 //new
-int pageNumbersLoaded[32]; //TODO - need to initialize these to -1 somehow
+int pageNumbersLoaded[32] = {
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+};
 
 Name* ramBankNames = 0;
 bool ramBankNamesLoaded = false;
@@ -55,6 +57,7 @@ bool ramBankNamesLoaded = false;
 extern char LoadedRomFName[2048];
 char NLfilename[2048];
 bool symbDebugEnabled = true;
+bool symbRegNames = true;
 int debuggerWasActive = 0;
 char temp_chr[40] = {0};
 char delimiterChar[2] = "#";
@@ -63,12 +66,12 @@ extern BOOL CALLBACK nameBookmarkCallB(HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 extern char bookmarkDescription[];
 
 MemoryMappedRegister RegNames[] = {
-	{"$2000", "PPU_CTRL_REG1"},
-	{"$2001", "PPU_CTRL_REG2"},
+	{"$2000", "PPU_CTRL"},
+	{"$2001", "PPU_MASK"},
 	{"$2002", "PPU_STATUS"},
-	{"$2003", "PPU_SPR_ADDR"},
-	{"$2004", "PPU_SPR_DATA"},
-	{"$2005", "PPU_SCROLL_REG"},
+	{"$2003", "PPU_OAM_ADDR"},
+	{"$2004", "PPU_OAM_DATA"},
+	{"$2005", "PPU_SCROLL"},
 	{"$2006", "PPU_ADDRESS"},
 	{"$2007", "PPU_DATA"},
 	{"$4000", "SQ1_VOL"},
@@ -92,10 +95,12 @@ MemoryMappedRegister RegNames[] = {
 	{"$4012", "DMC_START"},
 	{"$4013", "DMC_LEN"},
 	{"$4014", "OAM_DMA"},
-	{"$4015", "SND_CHN"},
+	{"$4015", "APU_STATUS"},
 	{"$4016", "JOY1"},
-	{"$4017", "JOY2"}
+	{"$4017", "JOY2_FRAME"}
 };
+
+int RegNameCount = sizeof(RegNames)/sizeof(MemoryMappedRegister);
 
 /**
 * Tests whether a char is a valid hexadecimal character.
@@ -549,6 +554,7 @@ void replaceNames(Name* list, char* str, std::vector<uint16>* addressesLog)
 	}
 
 	for (int i = 0; i < RegNameCount; i++) {
+		if (!symbRegNames) break;
 		// copypaste, because Name* is too complex to abstract
 		*buff = 0;
 		src = str;
@@ -646,7 +652,6 @@ void setNamesPointerForAddress(uint16 address, Name* newNode)
 void loadNameFiles()
 {
 	int cb;
-	RegNameCount = sizeof(RegNames)/sizeof(MemoryMappedRegister);
 
 	if (!ramBankNamesLoaded)
 	{
