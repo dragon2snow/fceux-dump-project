@@ -457,6 +457,7 @@ static BMAPPING bmap[] = {
 	{ "VRC7", UNLVRC7_Init, 0 },
 	{ "YOKO", UNLYOKO_Init, 0 },
 	{ "82112C", UNL82112C_Init, 0 },
+	{ "900218", BTL900218_Init, 0 },
 	{ "SB-2000", UNLSB2000_Init, 0 },
 	{ "COOLBOY", COOLBOY_Init, BMCFLAG_256KCHRR },
 

@@ -267,3 +267,98 @@ void UNLT230_Init(CartInfo *info) {
 	info->Power = M23Power;
 	VRC24_Init(info);
 }
+
+
+static DECLFW(BTL900218Write) {
+	A |= ((A >> 2) & 0x3) | ((A >> 4) & 0x3) | ((A >> 6) & 0x3);// actually there is many-in-one mapper source, some pirate or
+	// licensed games use various address bits for registers
+	A &= 0xF003;
+	if ((A >= 0xB000) && (A <= 0xE003)) {
+		if (UNIFchrrama)
+			big_bank = (V & 8) << 2;							// my personally many-in-one feature ;) just for support pirate cart 2-in-1
+		else{
+			uint16 i = ((A >> 1) & 1) | ((A - 0xB000) >> 11);
+			uint16 nibble = ((A & 1) << 2);
+			chrreg[i] = (chrreg[i] & (0xF0 >> nibble)) | ((V & 0xF) << nibble);
+			if (nibble)
+				chrhi[i] = (V & 0x10) << 4;						// another one many in one feature from pirate carts
+		}
+		Sync();
+	}
+	else
+		switch (A & 0xF003) {
+		case 0x8000:
+		case 0x8001:
+		case 0x8002:
+		case 0x8003:
+			if (!isPirate) {
+				prgreg[0] = V & 0x1F;
+				Sync();
+			}
+			break;
+		case 0xA000:
+		case 0xA001:
+		case 0xA002:
+		case 0xA003:
+			if (!isPirate)
+				prgreg[1] = V & 0x1F;
+			else{
+				prgreg[0] = (V & 0x1F) << 1;
+				prgreg[1] = ((V & 0x1F) << 1) | 1;
+			}
+			Sync();
+			break;
+		case 0x9000:
+		case 0x9001: if (V != 0xFF) mirr = V; Sync(); break;
+		case 0x9002:
+		case 0x9003: regcmd = V; Sync(); break;
+		case 0xF002:
+			//printf("0xF008 %04x %02x\n", A, V); 
+			IRQa = 0; IRQCount = 0;
+			X6502_IRQEnd(FCEU_IQEXT);
+			break;
+		case 0xF003:
+			//printf("0xF00C %04x %02x\n", A, V); 
+			IRQa = 1; 
+			X6502_IRQEnd(FCEU_IQEXT);
+			break;
+	}
+}
+void BTL900218IRQHook(int a) {//by idnariq
+		IRQCount += a;
+		if (IRQCount & 1024) {
+			X6502_IRQBegin(FCEU_IQEXT);
+		}
+}
+
+static void BTL900218Power(void) {
+	big_bank = 0x20;
+	Sync();
+	setprg8r(0x10, 0x6000, 0);	// Only two Goemon games are have battery backed RAM, three more shooters
+	// (Parodius Da!, Gradius 2 and Crisis Force uses 2k or SRAM at 6000-67FF only
+	SetReadHandler(0x6000, 0x7FFF, CartBR);
+	SetWriteHandler(0x6000, 0x7FFF, CartBW);
+	SetReadHandler(0x8000, 0xFFFF, CartBR);
+	SetWriteHandler(0x8000, 0xFFFF, BTL900218Write);
+	FCEU_CheatAddRAM(WRAMSIZE >> 10, 0x6000, WRAM);
+}
+//http://wiki.nesbbs.com/index.php?doc-view-72
+void BTL900218_Init(CartInfo *info) {
+	isPirate = 0;
+	is22 = 0;
+	info->Power = BTL900218Power;
+	MapIRQHook = BTL900218IRQHook;
+	GameStateRestore = StateRestore;
+
+	WRAMSIZE = 8192;
+	WRAM = (uint8*)FCEU_gmalloc(WRAMSIZE);
+	SetupCartPRGMapping(0x10, WRAM, WRAMSIZE, 1);
+	AddExState(WRAM, WRAMSIZE, 0, "WRAM");
+
+	if (info->battery) {
+		info->SaveGame[0] = WRAM;
+		info->SaveGameLen[0] = WRAMSIZE;
+	}
+
+	AddExState(&StateRegs, ~0, 0, 0);
+}
