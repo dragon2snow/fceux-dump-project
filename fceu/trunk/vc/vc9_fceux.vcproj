@@ -796,6 +796,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\boards\inlnsf.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\src\boards\karaoke.cpp"
 				>
 			</File>
@@ -1060,30 +1064,6 @@
 				</File>
 				<File
 					RelativePath="..\src\drivers\common\hq3x.h"
-					>
-				</File>
-				<File
-					RelativePath="..\src\drivers\common\input.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\$(InputName)3.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)\$(InputName)3.obj"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="..\src\drivers\common\input.h"
 					>
 				</File>
 				<File
@@ -1353,14 +1333,6 @@
 				</File>
 				<File
 					RelativePath="..\src\drivers\win\input.h"
-					>
-				</File>
-				<File
-					RelativePath="..\src\drivers\win\inputConfigUI.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\src\drivers\win\inputConfigUI.h"
 					>
 				</File>
 				<File
@@ -2263,42 +2235,6 @@
 					</File>
 					<File
 						RelativePath="..\src\drivers\win\taseditor\taseditor_window.h"
-						>
-					</File>
-				</Filter>
-				<Filter
-					Name="directinput"
-					>
-					<File
-						RelativePath="..\src\drivers\win\directinput\directInput.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\src\drivers\win\directinput\directinput.h"
-						>
-					</File>
-					<File
-						RelativePath="..\src\drivers\win\directinput\joystick.cpp"
-						>
-						<FileConfiguration
-							Name="Debug|Win32"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-								ObjectFile="$(IntDir)\$(InputName)1.obj"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release|Win32"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-								ObjectFile="$(IntDir)\$(InputName)1.obj"
-							/>
-						</FileConfiguration>
-					</File>
-					<File
-						RelativePath="..\src\drivers\win\directinput\joystick.h"
 						>
 					</File>
 				</Filter>
