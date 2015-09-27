@@ -148,6 +148,7 @@ void UNLKS7010_Init(CartInfo *info);
 void COOLBOY_Init(CartInfo *info);
 void BTL900218_Init(CartInfo *info);
 void UNL6499_02_Init(CartInfo *info);
+void UNLTh21311_Init(CartInfo *info);
 
 extern uint8 *UNIFchrrama;	// Meh.  So I can stop CHR RAM
 							// bank switcherooing with certain boards...

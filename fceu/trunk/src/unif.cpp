@@ -462,6 +462,7 @@ static BMAPPING bmap[] = {
 	{ "SB-2000", UNLSB2000_Init, 0 },
 	{ "COOLBOY", COOLBOY_Init, BMCFLAG_256KCHRR },
 
+	{ "TH2131-1", UNLTh21311_Init, 0 },
 	{ 0, 0, 0 }
 };
 
