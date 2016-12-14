@@ -108,6 +108,7 @@ void UNL3DBlock_Init(CartInfo *info);
 void UNL43272_Init(CartInfo *info);
 void UNL6035052_Init(CartInfo *info);
 void UNL8157_Init(CartInfo *info);
+void UNL820119CA1_Init(CartInfo *info);
 void UNL8237A_Init(CartInfo *info);
 void UNL8237_Init(CartInfo *info);
 void UNLA9746_Init(CartInfo *info);

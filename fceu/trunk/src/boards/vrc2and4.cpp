@@ -362,3 +362,49 @@ void BTL900218_Init(CartInfo *info) {
 
 	AddExState(&StateRegs, ~0, 0, 0);
 }
+
+//UNL-820119-C-A1
+static DECLFW(UNL820119CA1Write) {
+	
+	if ((A >= 0xB400) && (A <= 0xE40C)) {
+		A = (A & 0xF000) | ((A >> 2) & 0x03);
+		if (UNIFchrrama)
+			big_bank = (V & 8) << 2;							// my personally many-in-one feature ;) just for support pirate cart 2-in-1
+		else{
+			uint16 i = ((A >> 1) & 1) | ((A - 0xB000) >> 11);
+			uint16 nibble = ((A & 1) << 2);
+			chrreg[i] = (chrreg[i] & (0xF0 >> nibble)) | ((V & 0xF) << nibble);
+			if(nibble)
+				chrhi[i] = (V & 0x10) << 4;						// another one many in one feature from pirate carts
+		}
+		Sync();
+	} else
+		switch (A) {
+		case 0x8400: prgreg[0] = V & 0x1F; Sync(); break;
+		case 0xA400: prgreg[1] = V & 0x1F; Sync(); break;
+		case 0x9400: if (V != 0xFF) mirr = V; Sync(); break;
+		//case 0x9408: regcmd = V; Sync(); break;
+		case 0xF400: X6502_IRQEnd(FCEU_IQEXT); IRQLatch &= 0xF0; IRQLatch |= V & 0xF; break;
+		case 0xF404: X6502_IRQEnd(FCEU_IQEXT); IRQLatch &= 0x0F; IRQLatch |= V << 4; break;
+		case 0xF408: X6502_IRQEnd(FCEU_IQEXT); acount = 0; IRQCount = IRQLatch; IRQa = V & 2; irqcmd = V & 1; break;
+		case 0xF40C: X6502_IRQEnd(FCEU_IQEXT); IRQa = irqcmd; break;
+		}
+}
+
+static void UNL820119CA1Power(void) {
+	big_bank = 0x20;
+	Sync();
+	setprg8r(0x10, 0x6000, 0);
+	SetReadHandler(0x6000, 0x7FFF, CartBR);
+	SetWriteHandler(0x6000, 0x7FFF, CartBW);
+	SetReadHandler(0x8000, 0xFFFF, CartBR);
+	SetWriteHandler(0x8000, 0xFFFF, UNL820119CA1Write);
+	FCEU_CheatAddRAM(WRAMSIZE >> 10, 0x6000, WRAM);
+}
+
+void UNL820119CA1_Init(CartInfo *info) {
+	isPirate = 0;
+	is22 = 0;
+	info->Power = UNL820119CA1Power;
+	VRC24_Init(info);
+}

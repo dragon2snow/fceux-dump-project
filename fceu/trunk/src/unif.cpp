@@ -333,6 +333,7 @@ static BMAPPING bmap[] = {
 	{ "70in1B", BMC70in1B_Init, 0 },
 	{ "810544-C-A1", BMC810544CA1_Init, 0 },
 	{ "8157", UNL8157_Init, 0 },
+	{ "820119-C-A1", UNL820119CA1_Init, 0 },
 	{ "8237", UNL8237_Init, 0 },
 	{ "8237A", UNL8237A_Init, 0 },
 	{ "830118C", BMC830118C_Init, 0 },
